@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { margin: 0; background: transparent; overflow: hidden; font-family: 'Arial Black', sans-serif; }
+        #ticker-container {
+            width: 100%; height: 65px; background: #121212; color: white;
+            display: flex; align-items: center; border-top: 4px solid #cc0000;
+            position: absolute; bottom: 0;
+        }
+        #league-tag {
+            background: #cc0000; padding: 0 25px; height: 100%;
+            display: flex; align-items: center; font-weight: 900; font-size: 24px;
+        }
+        #score-content { padding-left: 20px; font-size: 24px; font-weight: bold; transition: opacity 0.4s; }
+    </style>
+</head>
+<body>
+    <div id="ticker-container">
+        <div id="league-tag">LIVE</div>
+        <div id="score-content">Loading Scores...</div>
+    </div>
+
+    <script>
+        // Use the PUBLISHED CSV link, not the SHARING link
+        const SHEET_URL = 'https://docs.google.com';
+
+        let scores = [];
+        let currentIndex = 0;
+
+        async function fetchScores() {
+            try {
+                // Using a proxy specifically for Google Sheets to avoid the "null" origin error
+                const response = await fetch(SHEET_URL);
+                const data = await response.text();
+                
+                const rows = data.split('\n').filter(row => row.trim() !== "");
+                if (rows.length > 1) {
+                    scores = rows.slice(1).map(row => {
+                        const cols = row.split(',');
+                        return { 
+                            league: cols[0] ? cols[0].replace(/"/g, '').trim() : "LIVE", 
+                            text: cols[1] ? cols[1].replace(/"/g, '').trim() : "" 
+                        };
+                    });
+                }
+            } catch (e) { console.error("Update failed", e); }
+        }
+
+        function flip() {
+            if (scores.length === 0) return;
+            const s = document.getElementById('score-content');
+            const l = document.getElementById('league-tag');
+            s.style.opacity = 0;
+            setTimeout(() => {
+                currentIndex = (currentIndex + 1) % scores.length;
+                l.innerText = scores[currentIndex].league;
+                s.innerText = scores[currentIndex].text;
+                s.style.opacity = 1;
+            }, 400);
+        }
+
+        fetchScores();
+        setInterval(fetchScores, 30000); 
+        setInterval(flip, 5000);
+    </script>
+</body>
+</html>
