@@ -1,41 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Score Ticker</title>
     <style>
-        body { margin: 0; background: transparent; overflow: hidden; font-family: 'Arial Black', sans-serif; }
+        /* Base Reset */
+        body { 
+            margin: 0; 
+            background: transparent; 
+            overflow: hidden; 
+            font-family: 'Segoe UI', 'Arial Black', sans-serif; 
+        }
+
+        /* Container with a subtle gradient and shadow for a broadcast look */
         #ticker-container {
-            width: 100%; height: 65px; background: #121212; color: white;
-            display: flex; align-items: center; border-top: 4px solid #cc0000;
-            position: absolute; bottom: 0;
+            width: 100%; 
+            height: 60px; 
+            background: linear-gradient(90deg, #121212 0%, #252525 100%); 
+            color: white;
+            display: flex; 
+            align-items: center; 
+            border-top: 3px solid #cc0000;
+            position: absolute; 
+            bottom: 0;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
         }
+
+        /* The League Label (e.g., NBA, LIVE, NFL) */
         #league-tag {
-            background: #cc0000; padding: 0 25px; height: 100%;
-            display: flex; align-items: center; font-weight: 900; font-size: 24px;
+            background: #cc0000; 
+            padding: 0 25px; 
+            height: 100%;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-weight: 900; 
+            font-size: 22px;
+            text-transform: uppercase;
+            min-width: 100px;
+            letter-spacing: 1px;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+            z-index: 2;
         }
-        #score-content { padding-left: 20px; font-size: 24px; font-weight: bold; transition: opacity 0.4s; }
+
+        /* Content Wrapper for the sliding effect */
+        #score-wrapper {
+            padding-left: 25px;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        #score-content { 
+            font-size: 24px; 
+            font-weight: bold; 
+            transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+            white-space: nowrap;
+        }
+
+        /* Animation states */
+        .hidden {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        .visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
+
     <div id="ticker-container">
         <div id="league-tag">LIVE</div>
-        <div id="score-content">Loading Scores...</div>
+        <div id="score-wrapper">
+            <div id="score-content" class="visible">Loading Scores...</div>
+        </div>
     </div>
 
     <script>
-        // Use the PUBLISHED CSV link, not the SHARING link
+        // Configuration
         const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTg-Tz5E3I18evi1F9nY5GC0WP2IF9X5qUKpdRPr9DCEpbptJ6RP3WNrHdtIKS20aIapvyV_mmQ6-6h/pub?output=csv';
+        const FETCH_INTERVAL = 30000; // Refresh data every 30 seconds
+        const ROTATE_INTERVAL = 5000; // Cycle scores every 5 seconds
 
         let scores = [];
         let currentIndex = 0;
 
+        /**
+         * Fetches CSV data from Google Sheets
+         */
         async function fetchScores() {
             try {
-                // Using a proxy specifically for Google Sheets to avoid the "null" origin error
                 const response = await fetch(SHEET_URL);
-                const data = await response.text();
+                if (!response.ok) throw new Error('Network response was not ok');
                 
+                const data = await response.text();
                 const rows = data.split('\n').filter(row => row.trim() !== "");
+                
                 if (rows.length > 1) {
+                    // Map CSV columns: 0 = League, 1 = Score Text
                     scores = rows.slice(1).map(row => {
                         const cols = row.split(',');
                         return { 
@@ -44,25 +108,40 @@
                         };
                     });
                 }
-            } catch (e) { console.error("Update failed", e); }
+            } catch (e) { 
+                console.error("Fetch failed:", e); 
+            }
         }
 
+        /**
+         * Cycles the display to the next score in the array
+         */
         function flip() {
             if (scores.length === 0) return;
-            const s = document.getElementById('score-content');
-            const l = document.getElementById('league-tag');
-            s.style.opacity = 0;
+
+            const content = document.getElementById('score-content');
+            const tag = document.getElementById('league-tag');
+
+            // Start "Out" animation
+            content.classList.remove('visible');
+            content.classList.add('hidden');
+
             setTimeout(() => {
+                // Update Data
                 currentIndex = (currentIndex + 1) % scores.length;
-                l.innerText = scores[currentIndex].league;
-                s.innerText = scores[currentIndex].text;
-                s.style.opacity = 1;
-            }, 400);
+                tag.innerText = scores[currentIndex].league;
+                content.innerText = scores[currentIndex].text;
+
+                // Start "In" animation
+                content.classList.remove('hidden');
+                content.classList.add('visible');
+            }, 400); // Matches the CSS transition duration
         }
 
+        // Initialize
         fetchScores();
-        setInterval(fetchScores, 30000); 
-        setInterval(flip, 5000);
+        setInterval(fetchScores, FETCH_INTERVAL); 
+        setInterval(flip, ROTATE_INTERVAL);
     </script>
 </body>
 </html>
